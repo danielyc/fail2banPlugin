@@ -7,4 +7,5 @@ urlpatterns = [
     re_path(r'^createConfig$', views.create_fail2ban_config, name='createConfig'),
     re_path(r'^deleteConfig$', views.delete_fail2ban_config, name='deleteConfig'),
     re_path(r'^getConfig$', views.get_fail2ban_config, name='getConfig'),
+    re_path(r'^getStatus$', views.get_fail2ban_status, name='getStatus'),
 ]

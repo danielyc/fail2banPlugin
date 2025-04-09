@@ -71,6 +71,9 @@
                                     <button type="button" ng-click="editConfig(config)" class="btn btn-xs btn-primary">
                                         <i class="fa fa-edit" style="position: static; vertical-align: middle;"></i> {% trans "Edit" %}
                                     </button>
+                                    <button type="button" ng-click="getStatus(config.domain)" class="btn btn-xs btn-success">
+                                        <i class="fa fa-info-circle" style="position: static; vertical-align: middle;"></i> {% trans "Status" %}
+                                    </button>
                                     <button type="button" ng-click="deleteConfig(config.domain)" class="btn btn-xs btn-danger">
                                         <i class="fa fa-trash" style="position: static; vertical-align: middle;"></i> {% trans "Delete" %}
                                     </button>
@@ -171,14 +174,47 @@
             <div ng-if="errorMessage" class="alert alert-danger">
                 <i class="fa fa-times" style="position: static; vertical-align: middle;"></i> {$ errorMessage $}
             </div>
+        </div><!--panel-->
+    
+    <!-- Status Modal -->
+    <div class="modal fade" id="statusModal" tabindex="-1" role="dialog" aria-labelledby="statusModalLabel">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="statusModalLabel">{% trans "Fail2Ban Status" %}: <span ng-bind="statusDomain"></span></h4>
+                </div>
+                <div class="modal-body">
+                    <div ng-if="loadingStatus" class="text-center">
+                        <img src="{% static 'images/loading.gif' %}" style="width: 30px; height: 30px;">
+                        <p>{% trans "Loading status..." %}</p>
+                    </div>
+                    <div ng-if="statusError" class="alert alert-danger">
+                        <i class="fa fa-exclamation-triangle"></i> <span ng-bind="statusErrorMessage"></span>
+                    </div>
+                    <div ng-if="statusOutput && !loadingStatus" class="well" style="white-space: pre-line">
+                        <div ng-bind-html="statusOutput | trustHtml"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-default" data-dismiss="modal">{% trans "Close" %}</button>
+                </div>
+            </div>
         </div>
     </div>
-</div>
+</div><!--container-->
 
 {% endblock %}
 
 {% block footer_scripts %}
 <script>
+    // Create a filter to safely render HTML
+    app.filter('trustHtml', ['$sce', function($sce) {
+        return function(text) {
+            return $sce.trustAsHtml(text);
+        };
+    }]);
+
     // Initialize Angular controller for Fail2Ban configurations
     app.controller('fail2banController', function($scope, $http) {
         // Parse data from server as JSON
@@ -206,6 +242,13 @@
         $scope.installSuccess = false;
         $scope.installError = false;
         $scope.installErrorMessage = '';
+        
+        // Status modal variables
+        $scope.statusDomain = '';
+        $scope.statusOutput = '';
+        $scope.loadingStatus = false;
+        $scope.statusError = false;
+        $scope.statusErrorMessage = '';
         
         // Install Fail2Ban
         $scope.installFail2ban = function() {
@@ -404,6 +447,38 @@
             }, function errorCallback(response) {
                 $scope.loading = false;
                 $scope.errorMessage = response.data.error_message || 'An unexpected error occurred';
+            });
+        };
+        
+        // Get fail2ban status for a domain
+        $scope.getStatus = function(domain) {
+            // Reset status variables
+            $scope.statusDomain = domain;
+            $scope.statusOutput = '';
+            $scope.loadingStatus = true;
+            $scope.statusError = false;
+            $scope.statusErrorMessage = '';
+            
+            // Show the modal
+            $('#statusModal').modal('show');
+            
+            // Make API request
+            $http({
+                method: 'GET',
+                url: '/fail2banPlugin/getStatus',
+                params: { domain: domain }
+            }).then(function successCallback(response) {
+                $scope.loadingStatus = false;
+                if (response.data.status === 1) {
+                    $scope.statusOutput = response.data.statusOutput;
+                } else {
+                    $scope.statusError = true;
+                    $scope.statusErrorMessage = response.data.error_message || 'Failed to get status';
+                }
+            }, function errorCallback(response) {
+                $scope.loadingStatus = false;
+                $scope.statusError = true;
+                $scope.statusErrorMessage = response.data.error_message || 'An unexpected error occurred';
             });
         };
     });

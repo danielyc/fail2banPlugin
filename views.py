@@ -209,6 +209,40 @@ def create_fail2ban_config(request):
     except Exception as e:
         return JsonResponse({'status': 0, 'error_message': f'An unexpected error occurred: {str(e)}'}, status=500)
 
+def get_fail2ban_status(request):
+    """
+    Get the status of a fail2ban configuration for a domain
+    """
+    if request.method != 'GET':
+        return JsonResponse({'status': 0, 'error_message': 'Only GET requests are allowed.'}, status=405)
+    
+    try:
+        # Extract domain from request
+        domain = request.GET.get('domain')
+        
+        if not domain:
+            return JsonResponse({'status': 0, 'error_message': 'Domain is required.'}, status=400)
+            
+        # Execute fail2ban-client status command
+        status_cmd = f'fail2ban-client status {domain}'
+        result = ProcessUtilities.outputExecutioner(status_cmd, None, True)
+        
+        if os.path.exists(ProcessUtilities.debugPath):
+            logging.CyberCPLogFileWriter.writeToFile(f"Get fail2ban status result: {result}")
+            
+        # Format the output for better display
+        formatted_output = result.replace('\n', '<br>')
+            
+        return JsonResponse({
+            'status': 1, 
+            'message': f'Status for {domain}',
+            'statusOutput': formatted_output
+        }, status=200)
+        
+    except Exception as e:
+        return JsonResponse({'status': 0, 'error_message': f'An unexpected error occurred: {str(e)}'}, status=500)
+        
+
 def delete_fail2ban_config(request):
     """
     Delete a fail2ban configuration for a domain
