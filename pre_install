@@ -1,0 +1,5 @@
+#!/bin/bash
+# This script will be executed before plugin installation
+# Any pre-installation tasks can be performed here
+
+exit 0

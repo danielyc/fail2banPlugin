@@ -1,0 +1,5 @@
+#!/bin/bash
+# This script will be executed after plugin installation
+# Any post-installation tasks can be performed here
+
+exit 0

@@ -1,0 +1,411 @@
+{% extends 'baseTemplate/index.html' %}
+{% load i18n %}
+
+{% block title %}{% trans "Fail2Ban Configuration" %}{% endblock %}
+
+{% block content %}
+
+{% load static %}
+{% get_current_language as LANGUAGE_CODE %}
+<!-- Current language: {{ LANGUAGE_CODE }} -->
+
+<div class="container">
+    <div id="page-title">
+        <h2>{% trans "Fail2Ban Configuration" %}</h2>
+        <p>{% trans "Configure Fail2Ban to protect your domains from brute force attacks" %}</p>
+    </div>
+
+    <div ng-controller="fail2banController" class="panel">
+        <div class="panel-body">
+            <!-- Installation Section -->
+            <div ng-if="!fail2ban_installed" class="alert alert-warning">
+                <h4>{% trans "Fail2Ban is not installed" %}</h4>
+                <p>{% trans "Fail2Ban is a service that helps protect your server from brute-force attacks by blocking IP addresses that make too many failed requests." %}</p>
+                <!-- Hidden form with CSRF token -->
+                <form id="installForm" style="display:none;">
+                    {% csrf_token %}
+                </form>
+                <button type="button" ng-click="installFail2ban()" ng-disabled="installing" class="btn btn-primary">
+                    <i class="fa fa-download" style="position: static; vertical-align: middle;"></i> {% trans "Install Fail2Ban" %}
+                    <img ng-show="installing" src="{% static 'images/loading.gif' %}" style="width: 20px; height: 20px;">
+                </button>
+            </div>
+
+            <div ng-if="installSuccess" class="alert alert-success">
+                <i class="fa fa-check" style="position: static; vertical-align: middle;"></i> {% trans "Fail2Ban installed successfully!" %}
+            </div>
+
+            <div ng-if="installError" class="alert alert-danger">
+                <i class="fa fa-times" style="position: static; vertical-align: middle;"></i> {% trans "Failed to install Fail2Ban:" %} {$ installErrorMessage $}
+            </div>
+
+            <!-- Configuration Section -->
+            <div ng-if="fail2ban_installed">
+                <h3 class="content-box-header">
+                    {% trans "Domain Configurations" %} <img ng-show="loading" src="{% static 'images/loading.gif' %}" style="width: 20px; height: 20px;">
+                </h3>
+
+                <!-- Domain Configuration List -->
+                <div class="table-responsive" ng-if="configs.length > 0">
+                    <table class="table table-bordered table-striped">
+                        <thead>
+                            <tr>
+                                <th>{% trans "Domain" %}</th>
+                                <th>{% trans "Max retries" %}</th>
+                                <th>{% trans "Time window (seconds)" %}</th>
+                                <th>{% trans "Ban time (seconds)" %}</th>
+                                <th>{% trans "Status codes" %}</th>
+                                <th>{% trans "IP whitelist" %}</th>
+                                <th>{% trans "Actions" %}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr ng-repeat="config in configs">
+                                <td>{$ config.domain $}</td>
+                                <td>{$ config.max_retries $}</td>
+                                <td>{$ config.find_time $}</td>
+                                <td>{$ config.ban_time $}</td>
+                                <td>{$ config.status_codes $}</td>
+                                <td>{$ config.ip_whitelist $}</td>
+                                <td>
+                                    <button type="button" ng-click="editConfig(config)" class="btn btn-xs btn-primary">
+                                        <i class="fa fa-edit" style="position: static; vertical-align: middle;"></i> {% trans "Edit" %}
+                                    </button>
+                                    <button type="button" ng-click="deleteConfig(config.domain)" class="btn btn-xs btn-danger">
+                                        <i class="fa fa-trash" style="position: static; vertical-align: middle;"></i> {% trans "Delete" %}
+                                    </button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div ng-if="configs.length === 0 && !loading" class="alert alert-info">
+                    <i class="fa fa-info-circle" style="position: static; vertical-align: middle;"></i> {% trans "No Fail2Ban configurations found. Create one using the form below." %}
+                </div>
+                
+                <!-- Configuration Form -->
+                <div class="panel panel-default">
+                    <div class="panel-heading">
+                        <h3 class="panel-title">{% trans "Create or Update Configuration" %}</h3>
+                    </div>
+                    <div class="panel-body">
+                        <form name="configForm" class="form-horizontal" role="form">
+                            {% csrf_token %}
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "Domain" %}</label>
+                                <div class="col-sm-6">
+                                    <select class="form-control" ng-model="formData.domain" ng-change="domainChanged()" required>
+                                        <option value="" disabled selected>{% trans "Select Domain" %}</option>
+                                        <option ng-repeat="domain in domains" value="{$ domain $}">{$ domain $}</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "Max retries" %}</label>
+                                <div class="col-sm-6">
+                                    <input type="number" class="form-control" ng-model="formData.max_retries" min="1" max="100" required>
+                                    <small class="help-block">{% trans "Number of failed attempts before banning (default: 30)" %}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "Time window" %}</label>
+                                <div class="col-sm-6">
+                                    <input type="number" class="form-control" ng-model="formData.find_time" min="10" required>
+                                    <small class="help-block">{% trans "Time window to count failed attempts in seconds (default: 60)" %}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "Ban time (seconds)" %}</label>
+                                <div class="col-sm-6">
+                                    <input type="number" class="form-control" ng-model="formData.ban_time" min="60" required>
+                                    <small class="help-block">{% trans "How long to ban an IP in seconds (default: 300)" %}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "HTTP Status Codes" %}</label>
+                                <div class="col-sm-6">
+                                    <input type="text" class="form-control" ng-model="formData.status_codes" 
+                                           placeholder="{% trans 'e.g. 401,403,404,500' %}" required
+                                           pattern="^[0-9]+(,[0-9]+)*$">
+                                    <small class="help-block">{% trans "HTTP status codes to trigger Fail2Ban (comma-separated)" %}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label class="col-sm-3 control-label">{% trans "IP Whitelist" %}</label>
+                                <div class="col-sm-6">
+                                    <textarea class="form-control" ng-model="formData.ip_whitelist" 
+                                           placeholder="{% trans 'e.g. 192.168.1.1,10.0.0.1' %}" rows="3"></textarea>
+                                    <small class="help-block">{% trans "IPs to whitelist from Fail2Ban rules (comma-separated). These IPs will never be banned." %}</small>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <div class="col-sm-offset-3 col-sm-6">
+                                    <button type="button" ng-click="submitConfig()" ng-disabled="!formData.domain || !formData.max_retries || !formData.find_time || !formData.ban_time || !formData.status_codes || submitLoading" class="btn btn-primary">
+                                        <i class="fa" ng-class="{'fa-plus': !editMode, 'fa-save': editMode}" style="position: static; vertical-align: middle;"></i> 
+                                        <span ng-if="editMode">{% trans "Update Configuration" %}</span>
+                                        <span ng-if="!editMode">{% trans "Create Configuration" %}</span>
+                                    </button>
+                                    <button type="button" ng-if="editMode" ng-click="cancelEdit()" class="btn btn-default">
+                                        <i class="fa fa-times" style="position: static; vertical-align: middle;"></i> {% trans "Cancel" %}
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Messages -->
+            <div ng-if="successMessage" class="alert alert-success">
+                <i class="fa fa-check" style="position: static; vertical-align: middle;"></i> {$ successMessage $}
+            </div>
+
+            <div ng-if="errorMessage" class="alert alert-danger">
+                <i class="fa fa-times" style="position: static; vertical-align: middle;"></i> {$ errorMessage $}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block footer_scripts %}
+<script>
+    // Initialize Angular controller for Fail2Ban configurations
+    app.controller('fail2banController', function($scope, $http) {
+        // Parse data from server as JSON
+        // The template variables are already JSON strings thanks to our view changes
+        $scope.fail2ban_installed = ("{{ fail2ban_installed|default:'false' }}" === "true");
+        $scope.domains = JSON.parse('{{ domains|escapejs }}');
+        $scope.configs = JSON.parse('{{ configs|escapejs }}');
+        
+        // Form data
+        $scope.formData = {
+            domain: '',
+            max_retries: 30,
+            find_time: 60,
+            ban_time: 300,
+            status_codes: '401,403,404,500'
+        };
+        
+        // UI state variables
+        $scope.loading = false;
+        $scope.submitLoading = false;
+        $scope.installing = false;
+        $scope.editMode = false;
+        $scope.successMessage = '';
+        $scope.errorMessage = '';
+        $scope.installSuccess = false;
+        $scope.installError = false;
+        $scope.installErrorMessage = '';
+        
+        // Install Fail2Ban
+        $scope.installFail2ban = function() {
+            $scope.installing = true;
+            $scope.installSuccess = false;
+            $scope.installError = false;
+            $scope.installErrorMessage = '';
+            
+            // Get CSRF token from the hidden form
+            var csrfToken = $("#installForm input[name='csrfmiddlewaretoken']").val();
+            console.log('CSRF Token:', csrfToken); // Log for debugging
+            
+            $http({
+                method: 'POST',
+                url: '/fail2banPlugin/installFail2ban',
+                headers: { 
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrfToken
+                },
+                data: $.param({ csrfmiddlewaretoken: csrfToken })
+            }).then(function successCallback(response) {
+                $scope.installing = false;
+                if (response.data.status === 1) {
+                    $scope.installSuccess = true;
+                    // Reload after successful installation to show configuration UI
+                    setTimeout(function() {
+                        window.location.reload();
+                    }, 2000);
+                } else {
+                    $scope.installError = true;
+                    $scope.installErrorMessage = response.data.error_message;
+                }
+            }, function errorCallback(response) {
+                $scope.installing = false;
+                $scope.installError = true;
+                $scope.installErrorMessage = response.data.error_message || 'An unexpected error occurred';
+            });
+        };
+        
+        // Submit configuration
+        $scope.submitConfig = function() {
+            // Don't check form validity using $scope.configForm.$valid as it may be undefined
+            // Instead, check required fields directly
+            if (!$scope.formData.domain || !$scope.formData.max_retries || 
+                !$scope.formData.find_time || !$scope.formData.ban_time || 
+                !$scope.formData.status_codes) {
+                $scope.errorMessage = "Please fill all required fields";
+                return;
+            }
+            
+            $scope.submitLoading = true;
+            $scope.successMessage = '';
+            $scope.errorMessage = '';
+            
+            var formData = angular.copy($scope.formData);
+            formData.csrfmiddlewaretoken = $("input[name='csrfmiddlewaretoken']").val();
+            
+            $http({
+                method: 'POST',
+                url: '/fail2banPlugin/createConfig',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                data: $.param(formData)
+            }).then(function successCallback(response) {
+                $scope.submitLoading = false;
+                if (response.data.status === 1) {
+                    $scope.successMessage = response.data.message;
+                    
+                    // If in edit mode, update the existing config in the list
+                    if ($scope.editMode) {
+                        for (var i = 0; i < $scope.configs.length; i++) {
+                            if ($scope.configs[i].domain === formData.domain) {
+                                $scope.configs[i] = angular.copy(formData);
+                                break;
+                            }
+                        }
+                    } else {
+                        // Otherwise add the new config to the list
+                        $scope.configs.push(angular.copy(formData));
+                    }
+                    
+                    // Reset form
+                    $scope.resetForm();
+                } else {
+                    $scope.errorMessage = response.data.error_message;
+                }
+            }, function errorCallback(response) {
+                $scope.submitLoading = false;
+                $scope.errorMessage = response.data.error_message || 'An unexpected error occurred';
+            });
+        };
+        
+        // Delete configuration
+        $scope.deleteConfig = function(domain) {
+            if (!confirm('Are you sure you want to delete the configuration for ' + domain + '?')) {
+                return;
+            }
+            
+            $scope.loading = true;
+            $scope.successMessage = '';
+            $scope.errorMessage = '';
+            
+            $http({
+                method: 'POST',
+                url: '/fail2banPlugin/deleteConfig',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                data: $.param({
+                    domain: domain,
+                    csrfmiddlewaretoken: $("input[name='csrfmiddlewaretoken']").val()
+                })
+            }).then(function successCallback(response) {
+                $scope.loading = false;
+                if (response.data.status === 1) {
+                    $scope.successMessage = response.data.message;
+                    
+                    // Remove the config from the list
+                    $scope.configs = $scope.configs.filter(function(config) {
+                        return config.domain !== domain;
+                    });
+                } else {
+                    $scope.errorMessage = response.data.error_message;
+                }
+            }, function errorCallback(response) {
+                $scope.loading = false;
+                $scope.errorMessage = response.data.error_message || 'An unexpected error occurred';
+            });
+        };
+        
+        // Edit configuration
+        $scope.editConfig = function(config) {
+            $scope.editMode = true;
+            $scope.formData = angular.copy(config);
+        };
+        
+        // Cancel edit
+        $scope.cancelEdit = function() {
+            $scope.resetForm();
+        };
+        
+        // Reset form
+        $scope.resetForm = function(preserveDomain) {
+            $scope.editMode = false;
+            
+            // If preserveDomain is true, remember the currently selected domain
+            var currentDomain = preserveDomain ? $scope.formData.domain : '';
+            
+            $scope.formData = {
+                domain: currentDomain, // Either keep the domain or set to empty
+                max_retries: 30,
+                find_time: 60,
+                ban_time: 300,
+                status_codes: '401,403,404,500',
+                ip_whitelist: ''
+            };
+            
+            if ($scope.configForm) {
+                $scope.configForm.$setPristine();
+                $scope.configForm.$setUntouched();
+            }
+        };
+        
+        // Handle domain change
+        $scope.domainChanged = function() {
+            // Reset the form but preserve the selected domain
+            $scope.resetForm(true);
+
+            // If domain exists in the existing configs table, load its configuration
+            var domainExists = $scope.configs.some(function(config) {
+                return config.domain === $scope.formData.domain;
+            });
+            if (domainExists) {
+                $scope.getConfig($scope.formData.domain);
+            }
+        };
+        
+        // Get configuration for a domain
+        $scope.getConfig = function(domain) {
+            $scope.loading = true;
+            
+            $http({
+                method: 'GET',
+                url: '/fail2banPlugin/getConfig',
+                params: { domain: domain }
+            }).then(function successCallback(response) {
+                $scope.loading = false;
+                if (response.data.status === 1) {
+                    $scope.formData = {
+                        domain: response.data.domain,
+                        max_retries: response.data.max_retries,
+                        find_time: response.data.find_time,
+                        ban_time: response.data.ban_time,
+                        status_codes: response.data.status_codes,
+                        ip_whitelist: response.data.ip_whitelist
+                    };
+                    $scope.editMode = true;
+                }
+            }, function errorCallback(response) {
+                $scope.loading = false;
+                $scope.errorMessage = response.data.error_message || 'An unexpected error occurred';
+            });
+        };
+    });
+</script>
+{% endblock %}

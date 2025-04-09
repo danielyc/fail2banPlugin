@@ -1,0 +1,5 @@
+#!/bin/bash
+# This script will be executed before plugin removal
+# Any tasks needed before removing the plugin can be performed here
+
+exit 0

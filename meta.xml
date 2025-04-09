@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<cyberpanelPluginConfig>
+    <name>fail2banPlugin</name>
+    <type>plugin</type>
+    <description>Fail2Ban Plugin</description>
+    <version>1.0</version>
+</cyberpanelPluginConfig>
