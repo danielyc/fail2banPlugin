@@ -11,6 +11,7 @@ Enhance your web server's security with comprehensive brute force attack protect
 - ⚪ IP whitelist support for trusted addresses
 - 🔄 Automatic configuration file generation
 - 🚫 Protection for website backends and CyberPanel admin login
+- 📋 Real-time status monitoring for each protected domain
 
 ## Prerequisites
 
@@ -36,6 +37,7 @@ Enhance your web server's security with comprehensive brute force attack protect
    - Whitelist trusted IP addresses
 4. Click "Create Configuration" or "Update Configuration" to activate protection
 5. Review existing configurations in the table view
+6. Use the "Status" button to check real-time ban information for any configured domain
 
 ## Advanced Configuration
 
@@ -43,6 +45,7 @@ Enhance your web server's security with comprehensive brute force attack protect
 - Configurations target common web attack patterns
 - Custom HTTP status code monitoring for precise security rules
 - IP whitelisting supports both individual IPs and CIDR notation
+- Real-time status monitoring shows currently banned IPs, retry counts, and jail information
 
 ## Troubleshooting
 
