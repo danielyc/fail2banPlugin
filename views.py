@@ -354,9 +354,11 @@ def generate_filter_config(config):
     """
     # Create a regex pattern that matches the status codes
     status_codes_pattern = '|'.join(config.status_codes.split(','))
+
+    # Example fail regex: failregex = ^"?<HOST> - - \[.*?\] "(GET|POST|HEAD|PUT|DELETE) .*? HTTP/.*?" (401|403|404|500)
     
     return f"""[Definition]
-    failregex = ^<HOST> -.*"(GET|POST).*" [{status_codes_pattern}]
+    failregex = ^"?<HOST> - - \[.*?\] "(GET|POST|HEAD|PUT|DELETE) .*? HTTP/.*?" ({status_codes_pattern})
     ignoreregex =
     """
 
